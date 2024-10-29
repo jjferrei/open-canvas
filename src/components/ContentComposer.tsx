@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AppendMessage,
   AssistantRuntimeProvider,
@@ -19,6 +19,8 @@ import { Toaster } from "./ui/toaster";
 import { ProgrammingLanguageOptions, Reflections } from "@/types";
 import { Thread as ThreadType } from "@langchain/langgraph-sdk";
 import { useToast } from "@/hooks/use-toast";
+import useWebSocket from '../hooks/useWebSocket';
+import { LANGGRAPH_API_URL } from '../constants';
 
 export interface ContentComposerChatInterfaceProps {
   messages: BaseMessage[];
@@ -50,6 +52,15 @@ export function ContentComposerChatInterface(
   const { messages, setMessages, streamMessage } = props;
   const [isRunning, setIsRunning] = useState(false);
 
+  const webSocketUrl = `${LANGGRAPH_API_URL}/ws/process-complex-query`;
+  const { sendMessage, onMessage } = useWebSocket(webSocketUrl);
+
+  useEffect(() => {
+    onMessage((message) => {
+      console.log('Received message from server:', message);
+    });
+  }, [onMessage]);
+
   async function onNew(message: AppendMessage): Promise<void> {
     if (message.content?.[0]?.type !== "text") {
       toast({
@@ -68,6 +79,9 @@ export function ContentComposerChatInterface(
       });
 
       setMessages((prevMessages) => [...prevMessages, humanMessage]);
+
+      // Send the message to the WebSocket server
+      sendMessage(message.content[0].text);
 
       await streamMessage({
         messages: [convertToOpenAIFormat(humanMessage)],
